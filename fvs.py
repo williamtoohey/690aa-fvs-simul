@@ -5,17 +5,6 @@ import time
 
 import math
 
-# determines whether a cycle has at most 1 vertex of degree >= 3
-def is_semidisjoint(cycle):
-	threeDegree = False
-	for v in cycle:
-		if graph.degree(v) > 2:
-			if threeDegree:
-				return False
-			else:
-				threeDegree = True
-	return True
-
 # returns whether the provided set is an fvs for graph
 def verify_fvs(graph, fvs):
 	g = graph.copy()
@@ -100,8 +89,10 @@ def total_degree(graph):
 		sum += v[1]
 	return sum
 
-#the probabilistic algorithm SingleWGuessI presented in Becker-Yehuda-Geiger
-def prob_alg(graph, j):
+#the probabilistic weighted algorithm presented in Becker-Yehuda-Geiger
+#including the weights of the vertices allows the vertices to be selected with probability proportion to degree/weight
+#not including the weights just picks with probability proportion to degree
+def prob_alg(graph, j, weights = []):
 	fvs = []
 	gi = graph.copy()
 	for i in range(0, j + 1):
@@ -115,7 +106,13 @@ def prob_alg(graph, j):
 		totDegree = total_degree(gi)
 		for v in vertices:
 			if gi.degree(v) > 0:
-				probabilities.append(gi.degree(v) / totDegree)
+				if len(weights) > 0:
+					sum = 0
+					for x in vertices:
+						sum += gi.degree(x) / weights[x]
+					probabilities.append((gi.degree(v) / weights[v]) / sum)
+				else:
+					probabilities.append(gi.degree(v) / totDegree)
 		toss = ran.uniform(0, 1)
 		count = 0
 		vertex = vertices[0];
@@ -129,6 +126,21 @@ def prob_alg(graph, j):
 	if not verify_fvs(graph, fvs):
 		return None
 	return fvs
+
+#gets the minimum fvs size for the graph - important so we know which sizes of fvs are impossible to be solutions
+def minimum_fvs(graph):
+	try:
+		nx.find_cycle(graph)
+	except:
+		return 0
+	size = len(graph.nodes())
+	vertices = list(graph.nodes())
+	for x in range(1, size - 1):
+		combo = it.combinations(vertices, x)
+		for y in combo:
+			if verify_fvs(graph, y):
+				return x
+	return size
 
 # returns the optimal fvs for graph - checks all possible selections of vertices and keeps track of the best fvs seen so far
 def optimal_fvs(graph):
@@ -152,30 +164,20 @@ def optimal_fvs(graph):
 					optSol = y
 	return optSol, optWeight
 
-
-# first argument is |V| in g, second argument is probability of any edge being in g
-# current printed output: edges of graph, weights of each vertex, edges of the equivalently branchy graph, and any vertices added to fvs at that point (due to closed cycles formed)
-graph = nx.erdos_renyi_graph(20, 0.5)
-print("graph has", len(graph.edges()), "edges")
+# first argument for erdos_renyi_graphs is |V| in g, second argument is probability of any edge being in g
+# currently just checks time required to run algorithm 1000 times with weights provided and time to generate opt solution
+graph = nx.erdos_renyi_graph(12, 0.5)
+edges = graph.edges()
+print("graph contains", len(edges), "edges")
 size = len(graph.nodes())
 weights = [ran.randint(1, size) for _ in range(size)]
-t1 = time.time()
-(sol, weight) = optimal_fvs(graph)
+t = time.time()
+for i in range(0, 1000):
+	prob_alg(graph, size - 2, weights)
 t2 = time.time()
-max = 0
-iter = 10000
-for i in range(0, iter):
-	temp = prob_alg(graph, size)
-	if temp is None:
-		max = -math.inf
-		break
-	weight = 0
-	for v in temp:
-		weight += weights[v]
-	if weight > max:
-		max = weight
-t3 = time.time()
-print("worst approximation was", max)
-print("optimal had weight", weight)
-print("time for opt was", t2 - t1)
-print("time to simul was", t3 - t2)
+print(weights)
+print(t2 - t, "time needed for alg")
+t = time.time()
+optimal_fvs(graph)
+t2 = time.time()
+print(t2 - t, "time needed for opt")
