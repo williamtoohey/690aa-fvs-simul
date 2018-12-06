@@ -3,8 +3,12 @@ import numpy as np
 import itertools as it
 import random as ran
 import time
-
 import math
+
+def generate_random_fvs_instance(n, p, max_weight):
+    graph = nx.erdos_renyi_graph(n, p)
+    weights = np.round(np.random.uniform(max_weight, 1, n))
+    return graph, weights
 
 # returns whether the provided set is an fvs for graph
 def verify_fvs(graph, fvs):
@@ -36,7 +40,7 @@ def delete_sinks(graph):
             return g;
 
 #transforms the graph into a branchy graph - whenever we have sequences of degree 2 vertices, we bypass a vertex with an edge joining its equally weighted or cheaper neighbors
-def get_branchy_graph(graph):
+def get_branchy_graph(graph, weights):
     partialFvs = []
     g = graph.copy()
     g = delete_sinks(g)
@@ -95,19 +99,22 @@ def prob_deg(g, w):
     degs = np.sum(adj, axis=0)
     return degs / np.sum(degs)
 
+# w is the weights in the original graph
+# is a subgraph of the original graph at some step in the algorithm
 def prob_deg_weights(g, w):
     adj = np.array(nx.to_numpy_matrix(g))
     degs = np.sum(adj, axis=0)
     return (degs / w[g.nodes()]) / np.sum(degs / w[g.nodes()])
 
-#the probabilistic weighted algorithm presented in Becker-Yehuda-Geiger
-#including the weights of the vertices allows the vertices to be selected with probability proportion to degree/weight
-#not including the weights just picks with probability proportion to degree
+# The probabilistic weighted algorithm presented in Becker-Yehuda-Geiger
+# Including the weights of the vertices allows the vertices to be selected
+# with probability proportion to degree/weight
+# Not including the weights just picks with probability proportion to degree
 def prob_alg(graph, weights, j, p=prob_deg):
     fvs = []
     gi = graph.copy()
     for _ in range(j):
-        (gi, partialFvs) = get_branchy_graph(gi)
+        (gi, partialFvs) = get_branchy_graph(gi, weights)
         if len(partialFvs) > 0:
             fvs = fvs + partialFvs
         if len(gi.nodes()) == 0:
@@ -145,7 +152,8 @@ def optimal_fvs(graph, weights):
 def weight_fvs(fvs, weights):
     return np.sum(weights[fvs])
 
-#probabilistic algorithm, run for min(max, c * 6^(current best weight)) iterations, probability proportional to degree ratio
+# probabilistic algorithm, run for min(max, c * 6^(current best weight)) iterations
+# 
 def wra(graph, weights, c, max, p=prob_deg):
     size = len(list(graph.nodes()))
     fvs = prob_alg(graph, weights, size - 2, p=p)
@@ -162,16 +170,27 @@ def wra(graph, weights, c, max, p=prob_deg):
         i += 1
     return fvs
 
+# returns number of iterations wra needs to find an optimal solution
+# for a particular
+def sample_num_itr_wra(graph, weights, opt, p=prob_deg):
+    size = len(list(graph.nodes()))
+    i = 0
+    while True:
+        fvs = prob_alg(graph, weights, size - 2, p=p)
+        w = weight_fvs(fvs, weights)
+        if w == opt:
+            break
+        i += 1
+    return fvs, w, i
+
 if __name__ == "__main__":
     # first argument for erdos_renyi_graphs is |V| in g, second argument is probability of any edge being in g
     # currently generates a random graph and random weight assignments, and runs wra
-    graph = nx.erdos_renyi_graph(8, 0.5)
-    edges = graph.edges()
+    graph, weights = generate_random_fvs_instance(8, 0.5, 100)
     size = len(graph.nodes())
-    weights = np.round(np.random.uniform(100, 1, size))
     optF, optW = optimal_fvs(graph, weights)
     print("opt fvs: " + str(optF))
-    print("opt had weight", optW)
+    print("opt weight: ", optW)
     fvs = wra(graph, weights, 2, 10, p=prob_deg_weights)#2 ** (math.log(size - 2, 2) ** 3))
     print("sol fvs: " + str(fvs))
-    print("min was", weight_fvs(fvs, weights))
+    print("sol weight: ", weight_fvs(fvs, weights))
