@@ -181,7 +181,7 @@ def sample_num_itr_wra(graph, weights, opt, p=prob_deg):
         if w == opt:
             break
         i += 1
-    return fvs, w, i
+    return i
 
 if __name__ == "__main__":
     # first argument for erdos_renyi_graphs is |V| in g, second argument is probability of any edge being in g
