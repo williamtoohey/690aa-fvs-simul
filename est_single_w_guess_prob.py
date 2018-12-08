@@ -2,6 +2,14 @@ from fvs import *
 import os
 import pickle
 
+# w is the weights in the original graph
+# is a subgraph of the original graph at some step in the algorithm
+def prob_mix(g, w):
+    adj = np.array(nx.to_numpy_matrix(g))
+    degs = np.sum(adj, axis=0)
+    ratios = 0.1*degs + degs / w[g.nodes()]
+    return ratios / np.sum(ratios)
+
 def est_num_itr(alg, graph, weights, opt, samples):
     n = 0
     for _ in range(samples):
@@ -22,7 +30,7 @@ if __name__ == "__main__":
     p = 0.5
     max_weight = 100
     alg_deg = lambda g, w, opt: sample_num_itr_wra(g, w, opt, p=prob_deg)
-    alg_deg_weight = lambda g, w, opt: sample_num_itr_wra(g, w, opt, p=prob_deg_weights)
+    alg_deg_weight = lambda g, w, opt: sample_num_itr_wra(g, w, opt, p=prob_mix)
 
     # estimated expected number of iterations until an optimal fvs is found
     max_exp_itrs_d = 0
